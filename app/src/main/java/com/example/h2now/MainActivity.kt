@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +42,10 @@ const val TAG = "MainActivity"
 class MainActivity : ComponentActivity() {
 
     private val waterViewModel: WaterViewModel by viewModels {
-        WaterViewModelFactory(WaterRepository())
+        WaterViewModelFactory(
+            WaterRepository(),
+            UserPreferencesRepository(applicationContext)
+        )
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +56,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             H2nowTheme {
                 val records by waterViewModel.records.collectAsState()
+                val dailyGoal by waterViewModel.dailyGoal.collectAsState()
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -77,7 +83,9 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {
-                        DailySummaryCard(records = records)
+                        DailySummaryCard(records = records, dailyGoal = dailyGoal.toDouble()) { newGoal ->
+                            waterViewModel.setDailyGoal(newGoal)
+                        }
                         AddIntakeSection { amount ->
                             waterViewModel.addWaterIntake(amount)
                         }
@@ -136,11 +144,72 @@ fun AddIntakeSection(onAddRecord: (Double) -> Unit) {
     }
 }
 
+@Composable
+fun DailyGoalInput(currentGoal: Int, onGoalSet: (Int) -> Unit) {
+    var showDialog by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf(currentGoal.toString()) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Set Daily Goal") },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Goal (ml)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val newGoal = text.toIntOrNull()
+                        if (newGoal != null) {
+                            onGoalSet(newGoal)
+                        }
+                        showDialog = false
+                    }
+                ) {
+                    Text("Set")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier.clickable { showDialog = true },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "of $currentGoal ml goal",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.8f)
+        )
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = "Edit Goal",
+            tint = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
 
 @Composable
-fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modifier) {
+fun DailySummaryCard(
+    records: List<WaterIntakeRecord>,
+    dailyGoal: Double,
+    modifier: Modifier = Modifier,
+    onGoalSet: (Int) -> Unit
+) {
     val totalIntake = records.sumOf { it.amount }
-    val dailyGoal = 2000.0
 
     var animationPlayed by remember { mutableStateOf(false) }
 
@@ -199,11 +268,7 @@ fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modi
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "of ${dailyGoal.toInt()} ml goal",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
+                DailyGoalInput(currentGoal = dailyGoal.toInt(), onGoalSet = onGoalSet)
                 Spacer(modifier = Modifier.height(16.dp))
                 LinearProgressIndicator(
                     progress = { animatedProgress },
@@ -326,10 +391,8 @@ fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeReco
 fun WaterIntakeListPreview() {
     H2nowTheme {
         Column {
-            // In a real app, you'd want to provide a mock ViewModel to the preview.
-            // For simplicity, we're just using mock data here.
-            DailySummaryCard(records = mockWaterIntakeRecords)
-            AddIntakeSection { /* Don't need to do anything for preview */ }
+            DailySummaryCard(records = mockWaterIntakeRecords, dailyGoal = 2000.0) {}
+            AddIntakeSection { }
             WaterIntakeList(records = mockWaterIntakeRecords)
         }
     }
