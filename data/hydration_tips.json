@@ -4,31 +4,31 @@
       "id": 1,
       "title": "Start Your Day With Water",
       "description": "Drinking a glass of water first thing in the morning helps kickstart your metabolism and rehydrates your body.",
-      "imageUrl": ""
+      "imageUrl": "https://raw.githubusercontent.com/cheryl7114/mobile_CA3/main/data/tips1.png"
     },
     {
       "id": 2,
       "title": "Carry a Water Bottle",
       "description": "Keep a reusable water bottle with you to make hydration convenient throughout the day.",
-      "imageUrl": ""
+      "imageUrl": "https://raw.githubusercontent.com/cheryl7114/mobile_CA3/main/data/tips2.png"
     },
     {
       "id": 3,
       "title": "Set Hydration Reminders",
       "description": "Gentle reminders help you stay consistent with your hydration goals.",
-      "imageUrl": ""
+      "imageUrl": "https://raw.githubusercontent.com/cheryl7114/mobile_CA3/main/data/tips3.png"
     },
     {
       "id": 4,
       "title": "Eat Water‑Rich Foods",
       "description": "Fruits like watermelon, oranges, and strawberries naturally boost hydration.",
-      "imageUrl": ""
+      "imageUrl": "https://raw.githubusercontent.com/cheryl7114/mobile_CA3/main/data/tips4.png"
     },
     {
       "id": 5,
       "title": "Track Your Daily Intake",
       "description": "Monitoring how much water you drink each day helps you build healthier habits.",
-      "imageUrl": ""
+      "imageUrl": "https://raw.githubusercontent.com/cheryl7114/mobile_CA3/main/data/tips5.png"
     }
   ]
 }
