@@ -5,22 +5,28 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.h2now.ui.theme.H2nowTheme
@@ -38,6 +44,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             H2nowTheme {
+                var records by remember { mutableStateOf(mockWaterIntakeRecords) }
+
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
@@ -63,10 +71,13 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding)) {
-                        DailySummaryCard(records = mockWaterIntakeRecords)
+                        DailySummaryCard(records = records)
+                        AddIntakeSection { amount ->
+                            records = records + WaterIntakeRecord(amount, Date())
+                        }
                         WaterIntakeList(
                             modifier = Modifier.weight(1f),
-                            records = mockWaterIntakeRecords
+                            records = records
                         )
                     }
                 }
@@ -86,10 +97,64 @@ val mockWaterIntakeRecords = listOf(
 )
 
 @Composable
+fun AddIntakeSection(onAddRecord: (Double) -> Unit) {
+    var text by remember { mutableStateOf("") }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Intake amount (ml)") },
+            modifier = Modifier.weight(1f),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+        Button(
+            onClick = {
+                val amount = text.toDoubleOrNull()
+                if (amount != null) {
+                    onAddRecord(amount)
+                    text = ""
+                }
+            },
+            enabled = text.isNotBlank(),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            Icon(imageVector = Icons.Default.Add, contentDescription = "Add Intake")
+        }
+    }
+}
+
+
+@Composable
 fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modifier) {
     val totalIntake = records.sumOf { it.amount }
     val dailyGoal = 2000.0
-    val progress = (totalIntake / dailyGoal).coerceIn(0.0, 1.0)
+
+    var animationPlayed by remember { mutableStateOf(false) }
+
+    val targetProgress = (totalIntake / dailyGoal).toFloat().coerceIn(0f, 1f)
+    val targetIntake = totalIntake.toInt()
+
+    val animatedIntake by animateIntAsState(
+        targetValue = if (animationPlayed) targetIntake else 0,
+        animationSpec = tween(durationMillis = 1000),
+        label = "animatedIntake"
+    )
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (animationPlayed) targetProgress else 0f,
+        animationSpec = tween(durationMillis = 1000),
+        label = "animatedProgress"
+    )
+
+    LaunchedEffect(key1 = totalIntake) {
+        animationPlayed = true
+    }
 
     Card(
         modifier = modifier
@@ -123,7 +188,7 @@ fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modi
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "${totalIntake.toInt()} ml",
+                    text = "$animatedIntake ml",
                     style = MaterialTheme.typography.displayMedium,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
@@ -135,7 +200,7 @@ fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modi
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 LinearProgressIndicator(
-                    progress = { progress.toFloat() },
+                    progress = { animatedProgress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
@@ -145,7 +210,7 @@ fun DailySummaryCard(records: List<WaterIntakeRecord>, modifier: Modifier = Modi
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${(progress * 100).toInt()}% complete",
+                    text = "${(animatedProgress * 100).toInt()}% complete",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.9f)
                 )
@@ -255,8 +320,13 @@ fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeReco
 fun WaterIntakeListPreview() {
     H2nowTheme {
         Column {
-            DailySummaryCard(records = mockWaterIntakeRecords)
-            WaterIntakeList(records = mockWaterIntakeRecords)
+            var records by remember { mutableStateOf(mockWaterIntakeRecords) }
+
+            DailySummaryCard(records = records)
+            AddIntakeSection { amount ->
+                records = records + WaterIntakeRecord(amount, Date())
+            }
+            WaterIntakeList(records = records)
         }
     }
 }
