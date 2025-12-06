@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -37,6 +38,11 @@ import java.util.Locale
 const val TAG = "MainActivity"
 
 class MainActivity : ComponentActivity() {
+
+    private val waterViewModel: WaterViewModel by viewModels {
+        WaterViewModelFactory(WaterRepository())
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +50,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             H2nowTheme {
-                var records by remember { mutableStateOf(mockWaterIntakeRecords) }
+                val records by waterViewModel.records.collectAsState()
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -73,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.padding(innerPadding)) {
                         DailySummaryCard(records = records)
                         AddIntakeSection { amount ->
-                            records = records + WaterIntakeRecord(amount, Date())
+                            waterViewModel.addWaterIntake(amount)
                         }
                         WaterIntakeList(
                             modifier = Modifier.weight(1f),
@@ -320,13 +326,11 @@ fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeReco
 fun WaterIntakeListPreview() {
     H2nowTheme {
         Column {
-            var records by remember { mutableStateOf(mockWaterIntakeRecords) }
-
-            DailySummaryCard(records = records)
-            AddIntakeSection { amount ->
-                records = records + WaterIntakeRecord(amount, Date())
-            }
-            WaterIntakeList(records = records)
+            // In a real app, you'd want to provide a mock ViewModel to the preview.
+            // For simplicity, we're just using mock data here.
+            DailySummaryCard(records = mockWaterIntakeRecords)
+            AddIntakeSection { /* Don't need to do anything for preview */ }
+            WaterIntakeList(records = mockWaterIntakeRecords)
         }
     }
 }
