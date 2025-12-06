@@ -18,8 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.h2now.ui.theme.H2nowTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -57,6 +63,9 @@ class MainActivity : ComponentActivity() {
             H2nowTheme {
                 val records by waterViewModel.records.collectAsState()
                 val dailyGoal by waterViewModel.dailyGoal.collectAsState()
+                val navController = rememberNavController()
+                val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = currentBackStackEntry?.destination?.route
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -72,27 +81,52 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = null,
                                         tint = Color(0xFF2196F3)
                                     )
-                                    Text("H2Now", fontWeight = FontWeight.Bold)
+                                    Text(if (currentRoute == "settings") "Settings" else "H2Now", fontWeight = FontWeight.Bold)
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.White,
                                 titleContentColor = Color(0xFF1976D2)
-                            )
+                            ),
+                            actions = {
+                                if (currentRoute == "main") {
+                                    IconButton(onClick = { navController.navigate("settings") }) {
+                                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                    }
+                                }
+                            },
+                            navigationIcon = {
+                                if (currentRoute == "settings") {
+                                    IconButton(onClick = { navController.navigateUp() }) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                    }
+                                }
+                            }
                         )
                     }
                 ) { innerPadding ->
-                    Column(modifier = Modifier.padding(innerPadding)) {
-                        DailySummaryCard(records = records, dailyGoal = dailyGoal.toDouble()) { newGoal ->
-                            waterViewModel.setDailyGoal(newGoal)
+                    NavHost(
+                        navController = navController,
+                        startDestination = "main",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("main") {
+                            Column {
+                                DailySummaryCard(records = records, dailyGoal = dailyGoal.toDouble()) { newGoal ->
+                                    waterViewModel.setDailyGoal(newGoal)
+                                }
+                                AddIntakeSection { amount ->
+                                    waterViewModel.addWaterIntake(amount)
+                                }
+                                WaterIntakeList(
+                                    modifier = Modifier.weight(1f),
+                                    records = records
+                                )
+                            }
                         }
-                        AddIntakeSection { amount ->
-                            waterViewModel.addWaterIntake(amount)
+                        composable("settings") {
+                            SettingsScreen(waterViewModel = waterViewModel)
                         }
-                        WaterIntakeList(
-                            modifier = Modifier.weight(1f),
-                            records = records
-                        )
                     }
                 }
             }
