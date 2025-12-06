@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.*
@@ -81,7 +83,13 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = null,
                                         tint = Color(0xFF2196F3)
                                     )
-                                    Text(if (currentRoute == "settings") "Settings" else "H2Now", fontWeight = FontWeight.Bold)
+                                    Text(
+                                        when (currentRoute) {
+                                            "settings" -> "Settings"
+                                            "tips" -> "Hydration Tips"
+                                            else -> "H2Now"
+                                        }, fontWeight = FontWeight.Bold
+                                    )
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
@@ -103,6 +111,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         )
+                    },
+                    bottomBar = {
+                        BottomNavigationBar(navController = navController)
                     }
                 ) { innerPadding ->
                     NavHost(
@@ -127,12 +138,52 @@ class MainActivity : ComponentActivity() {
                         composable("settings") {
                             SettingsScreen(waterViewModel = waterViewModel)
                         }
+                        composable("tips") {
+                            TipsScreen()
+                        }
                     }
                 }
             }
         }
     }
 }
+
+@Composable
+fun BottomNavigationBar(navController: androidx.navigation.NavController) {
+    NavigationBar {
+        val items = listOf(
+            NavigationItem("main", Icons.Default.Home, "Home"),
+            NavigationItem("tips", Icons.Default.Info, "Tips")
+        )
+        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icon, contentDescription = item.title) },
+                label = { Text(item.title) },
+                selected = currentRoute == item.route,
+                onClick = {
+                    navController.navigate(item.route) {
+                        // Pop up to the start destination of the graph to
+                        // avoid building up a large stack of destinations
+                        // on the back stack as users select items
+                        navController.graph.startDestinationRoute?.let {
+                            popUpTo(it) {
+                                saveState = true
+                            }
+                        }
+                        // Avoid multiple copies of the same destination when
+                        // reselecting the same item
+                        launchSingleTop = true
+                        // Restore state when reselecting a previously selected item
+                        restoreState = true
+                    }
+                }
+            )
+        }
+    }
+}
+
+data class NavigationItem(val route: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String)
 
 data class WaterIntakeRecord(val amount: Double, val date: Date)
 
