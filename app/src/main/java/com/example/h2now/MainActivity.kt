@@ -464,3 +464,55 @@ fun WaterIntakeListPreview() {
         }
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+fun MainScreenPreview() {
+    H2nowTheme {
+        // You can't use the real ViewModel in a preview, so pass mock data.
+        // Your file already has a mock list, which is perfect!
+        val records = mockWaterIntakeRecords
+        val dailyGoal = 2000.0
+
+        Column {
+            DailySummaryCard(records = records, dailyGoal = dailyGoal) {}
+            AddIntakeSection {}
+            WaterIntakeList(
+                modifier = Modifier.weight(1f),
+                records = records
+            )
+        }
+    }
+}
+
+@Preview(
+    name = "Phone",
+    showBackground = true,
+    device = "spec:width=360dp,height=640dp,dpi=480"
+)
+@Composable
+fun PhonePreview() {
+    MainScreenPreview()
+}
+
+// Preview for a foldable device in its unfolded state
+@Preview(
+    name = "Foldable (Unfolded)",
+    showBackground = true,
+    device = "spec:width=673dp,height=841dp,dpi=480"
+)
+@Composable
+fun FoldablePreview() {
+    MainScreenPreview()
+}
+
+// Preview for a tablet
+@Preview(
+    name = "Tablet",
+    showBackground = true,
+    device = "spec:width=1280dp,height=800dp,dpi=480"
+)
+@Composable
+fun TabletPreview() {
+    MainScreenPreview()
+}
