@@ -10,6 +10,16 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,16 +89,66 @@ class UserPreferencesRepository(private val context: Context) {
     }
 }
 
+@Entity(tableName = "water_intake_records")
+data class WaterIntakeRecord(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val amount: Double,
+    val date: Date
+)
+
+@Dao
+interface WaterIntakeDao {
+    @Query("SELECT * FROM water_intake_records ORDER BY date DESC")
+    fun getAll(): Flow<List<WaterIntakeRecord>>
+
+    @Insert
+    suspend fun insert(record: WaterIntakeRecord)
+}
+
+class Converters {
+    @TypeConverter
+    fun fromTimestamp(value: Long?): Date? {
+        return value?.let { Date(it) }
+    }
+
+    @TypeConverter
+    fun dateToTimestamp(date: Date?): Long? {
+        return date?.time
+    }
+}
+
+@Database(entities = [WaterIntakeRecord::class], version = 1, exportSchema = false)
+@TypeConverters(Converters::class)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun waterIntakeDao(): WaterIntakeDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "water_database"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+
+
 /**
  * A simple repository to manage water intake data.
  */
-class WaterRepository {
-    private val _records = MutableStateFlow<List<WaterIntakeRecord>>(emptyList())
-    val records: StateFlow<List<WaterIntakeRecord>> = _records.asStateFlow()
+class WaterRepository(private val waterIntakeDao: WaterIntakeDao) {
+    val records: Flow<List<WaterIntakeRecord>> = waterIntakeDao.getAll()
 
-    fun addRecord(record: WaterIntakeRecord) {
-        // Add to the beginning of the list to show newest first
-        _records.value = listOf(record) + _records.value
+    suspend fun addRecord(record: WaterIntakeRecord) {
+        waterIntakeDao.insert(record)
     }
 }
 
@@ -99,7 +159,11 @@ class WaterViewModel(
     private val waterRepository: WaterRepository,
     private val prefsRepository: UserPreferencesRepository
 ) : ViewModel() {
-    val records: StateFlow<List<WaterIntakeRecord>> = waterRepository.records
+    val records: StateFlow<List<WaterIntakeRecord>> = waterRepository.records.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     // Expose daily goal from preferences
     val dailyGoal: StateFlow<Int> = prefsRepository.dailyGoal
@@ -132,9 +196,11 @@ class WaterViewModel(
 
 
     fun addWaterIntake(amount: Double) {
-        if (amount > 0) {
-            val newRecord = WaterIntakeRecord(amount, Date())
-            waterRepository.addRecord(newRecord)
+        viewModelScope.launch {
+            if (amount > 0) {
+                val newRecord = WaterIntakeRecord(amount = amount, date = Date())
+                waterRepository.addRecord(newRecord)
+            }
         }
     }
 

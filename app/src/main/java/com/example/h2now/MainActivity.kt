@@ -49,9 +49,10 @@ const val TAG = "MainActivity"
 
 class MainActivity : ComponentActivity() {
 
+    private val database by lazy { AppDatabase.getDatabase(this) }
     private val waterViewModel: WaterViewModel by viewModels {
         WaterViewModelFactory(
-            WaterRepository(),
+            WaterRepository(database.waterIntakeDao()),
             UserPreferencesRepository(applicationContext)
         )
     }
@@ -62,7 +63,9 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onCreate: Activity created")
         enableEdgeToEdge()
         setContent {
-            H2nowTheme {
+            val darkMode by waterViewModel.darkModeEnabled.collectAsState()
+
+            H2nowTheme(darkTheme = darkMode) {
                 val records by waterViewModel.records.collectAsState()
                 val dailyGoal by waterViewModel.dailyGoal.collectAsState()
                 val navController = rememberNavController()
@@ -81,7 +84,7 @@ class MainActivity : ComponentActivity() {
                                     Icon(
                                         imageVector = Icons.Default.WaterDrop,
                                         contentDescription = null,
-                                        tint = Color(0xFF2196F3)
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
                                         when (currentRoute) {
@@ -93,8 +96,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.White,
-                                titleContentColor = Color(0xFF1976D2)
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                titleContentColor = MaterialTheme.colorScheme.onSurface
                             ),
                             actions = {
                                 if (currentRoute == "main") {
@@ -104,7 +107,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             navigationIcon = {
-                                if (currentRoute == "settings") {
+                                if (currentRoute != "main") {
                                     IconButton(onClick = { navController.navigateUp() }) {
                                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                     }
@@ -163,18 +166,10 @@ fun BottomNavigationBar(navController: androidx.navigation.NavController) {
                 selected = currentRoute == item.route,
                 onClick = {
                     navController.navigate(item.route) {
-                        // Pop up to the start destination of the graph to
-                        // avoid building up a large stack of destinations
-                        // on the back stack as users select items
-                        navController.graph.startDestinationRoute?.let {
-                            popUpTo(it) {
-                                saveState = true
-                            }
+                        popUpTo(navController.graph.startDestinationRoute!!) {
+                            saveState = true
                         }
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
                         launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
                         restoreState = true
                     }
                 }
@@ -185,14 +180,12 @@ fun BottomNavigationBar(navController: androidx.navigation.NavController) {
 
 data class NavigationItem(val route: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: String)
 
-data class WaterIntakeRecord(val amount: Double, val date: Date)
-
 val mockWaterIntakeRecords = listOf(
-    WaterIntakeRecord(250.0, Date()),
-    WaterIntakeRecord(500.0, Date()),
-    WaterIntakeRecord(125.0, Date()),
-    WaterIntakeRecord(300.0, Date()),
-    WaterIntakeRecord(250.0, Date()),
+    WaterIntakeRecord(amount = 250.0, date = Date()),
+    WaterIntakeRecord(amount = 500.0, date = Date()),
+    WaterIntakeRecord(amount = 125.0, date = Date()),
+    WaterIntakeRecord(amount = 300.0, date = Date()),
+    WaterIntakeRecord(amount = 250.0, date = Date()),
 )
 
 @Composable
@@ -298,7 +291,7 @@ fun DailySummaryCard(
 
     var animationPlayed by remember { mutableStateOf(false) }
 
-    val targetProgress = (totalIntake / dailyGoal).toFloat().coerceIn(0f, 1f)
+    val targetProgress = if (dailyGoal > 0) (totalIntake / dailyGoal).toFloat().coerceIn(0f, 1f) else 0f
     val targetIntake = totalIntake.toInt()
 
     val animatedIntake by animateIntAsState(
@@ -321,9 +314,6 @@ fun DailySummaryCard(
             .fillMaxWidth()
             .padding(16.dp),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
@@ -332,14 +322,14 @@ fun DailySummaryCard(
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            Color(0xFF2196F3),
-                            Color(0xFF03A9F4)
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.secondary
                         )
                     )
                 )
                 .padding(20.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = "Today's Progress",
                     style = MaterialTheme.typography.titleMedium,
@@ -382,9 +372,6 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(vertical = 6.dp, horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -402,13 +389,13 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE3F2FD)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.WaterDrop,
                         contentDescription = null,
-                        tint = Color(0xFF2196F3),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -417,7 +404,6 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
                         text = "${record.amount.toInt()} ml",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
                     )
                     val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
                     Text(
@@ -430,17 +416,16 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFFE8F5E9)
+                color = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(
                     text = when {
                         record.amount >= 500 -> "Great!"
-                        record.amount >= 250 -> "Good!"
-                        else -> "Keep Up!"
+                        record.amount >= 250 -> "Good"
+                        else -> "Keep Going"
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF2E7D32),
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -451,17 +436,14 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
 @Composable
 fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeRecord>) {
     LazyColumn(
-        modifier = modifier
-            .background(Color(0xFFF5F5F5))
-            .fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         item {
             Text(
-                text = "Recent Intake",
+                text = if (records.isEmpty()) "No intake recorded yet" else "Recent Intake",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
         }
