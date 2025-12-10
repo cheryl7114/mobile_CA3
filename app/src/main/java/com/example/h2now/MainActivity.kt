@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
@@ -44,6 +45,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.h2now.ui.theme.H2nowTheme
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -70,11 +72,13 @@ class MainActivity : ComponentActivity() {
             H2nowTheme(darkTheme = darkMode) {
                 val records by waterViewModel.records.collectAsState()
                 val dailyGoal by waterViewModel.dailyGoal.collectAsState()
+                val selectedDate by waterViewModel.selectedDate.collectAsState()
                 val navController = rememberNavController()
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStackEntry?.destination?.route
 
                 var selectedRecordForEditing by remember { mutableStateOf<WaterIntakeRecord?>(null) }
+                var showDatePicker by remember { mutableStateOf(false) }
 
                 if (selectedRecordForEditing != null) {
                     EditIntakeDialog(
@@ -88,6 +92,13 @@ class MainActivity : ComponentActivity() {
                             waterViewModel.deleteWaterIntake(it)
                             selectedRecordForEditing = null
                         }
+                    )
+                }
+
+                if (showDatePicker) {
+                    MyDatePickerDialog(
+                        onDateSelected = { waterViewModel.selectDate(it) },
+                        onDismiss = { showDatePicker = false }
                     )
                 }
 
@@ -126,7 +137,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             navigationIcon = {
-                                if (currentRoute != "main") {
+                                if (currentRoute != "main" && currentRoute != null) {
                                     IconButton(onClick = { navController.navigateUp() }) {
                                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                                     }
@@ -144,13 +155,19 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("main") {
+                            val isToday = isToday(selectedDate)
                             Column {
-                                DailySummaryCard(records = records, dailyGoal = dailyGoal.toDouble()) { newGoal ->
+                                DailySummaryCard(
+                                    records = records,
+                                    dailyGoal = dailyGoal.toDouble(),
+                                    selectedDate = selectedDate
+                                ) { newGoal ->
                                     waterViewModel.setDailyGoal(newGoal)
                                 }
-                                AddIntakeSection { amount ->
+                                AddIntakeSection(enabled = isToday) { amount ->
                                     waterViewModel.addWaterIntake(amount)
                                 }
+                                DateHeader(selectedDate = selectedDate) { showDatePicker = true }
                                 WaterIntakeList(
                                     modifier = Modifier.weight(1f),
                                     records = records,
@@ -168,6 +185,69 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+fun isToday(date: Date): Boolean {
+    val today = Calendar.getInstance()
+    val calendar = Calendar.getInstance()
+    calendar.time = date
+    return today.get(Calendar.YEAR) == calendar.get(Calendar.YEAR) &&
+            today.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyDatePickerDialog(
+    onDateSelected: (Date) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
+    )
+
+    DatePickerDialog(
+        onDismissRequest = { onDismiss() },
+        confirmButton = {
+            Button(onClick = {
+                datePickerState.selectedDateMillis?.let {
+                    onDateSelected(Date(it))
+                }
+                onDismiss()
+            }) {
+                Text(text = "OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text(text = "Cancel")
+            }
+        }
+    ) {
+        DatePicker(state = datePickerState)
+    }
+}
+
+@Composable
+fun DateHeader(selectedDate: Date, onDateClick: () -> Unit) {
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onDateClick() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = sdf.format(selectedDate),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Icon(
+            imageVector = Icons.Default.DateRange,
+            contentDescription = "Select Date"
+        )
     }
 }
 
@@ -211,7 +291,7 @@ val mockWaterIntakeRecords = listOf(
 )
 
 @Composable
-fun AddIntakeSection(onAddRecord: (Double) -> Unit) {
+fun AddIntakeSection(enabled: Boolean, onAddRecord: (Double) -> Unit) {
     var text by remember { mutableStateOf("") }
 
     Row(
@@ -226,7 +306,8 @@ fun AddIntakeSection(onAddRecord: (Double) -> Unit) {
             onValueChange = { text = it },
             label = { Text("Intake amount (ml)") },
             modifier = Modifier.weight(1f),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            enabled = enabled
         )
         Button(
             onClick = {
@@ -236,7 +317,7 @@ fun AddIntakeSection(onAddRecord: (Double) -> Unit) {
                     text = ""
                 }
             },
-            enabled = text.isNotBlank(),
+            enabled = enabled && text.isNotBlank(),
             contentPadding = PaddingValues(16.dp)
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = "Add Intake")
@@ -306,6 +387,7 @@ fun DailyGoalInput(currentGoal: Int, onGoalSet: (Int) -> Unit) {
 fun DailySummaryCard(
     records: List<WaterIntakeRecord>,
     dailyGoal: Double,
+    selectedDate: Date,
     modifier: Modifier = Modifier,
     onGoalSet: (Int) -> Unit
 ) {
@@ -331,6 +413,12 @@ fun DailySummaryCard(
         animationPlayed = true
     }
 
+    val title = if (isToday(selectedDate)) {
+        "Today's Progress"
+    } else {
+        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(selectedDate)
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -353,7 +441,7 @@ fun DailySummaryCard(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Today's Progress",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White.copy(alpha = 0.9f),
                     fontWeight = FontWeight.Medium
@@ -624,8 +712,8 @@ fun EditIntakeDialog(
 fun WaterIntakeListPreview() {
     H2nowTheme {
         Column {
-            DailySummaryCard(records = mockWaterIntakeRecords, dailyGoal = 2000.0) {}
-            AddIntakeSection { }
+            DailySummaryCard(records = mockWaterIntakeRecords, dailyGoal = 2000.0, selectedDate = Date()) {}
+            AddIntakeSection(enabled = true) { }
             WaterIntakeList(records = mockWaterIntakeRecords) {}
         }
     }

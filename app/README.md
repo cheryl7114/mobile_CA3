@@ -41,3 +41,6 @@ Navigation handled using Jetpack Navigation Compose.
 
 11. Clean Architecture (MVVM)
     Uses ViewModel and Repository to cleanly separate UI from data logic.
+
+12. Select Intake by Date
+    Users can view their water intake by the date they select

@@ -25,11 +25,15 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import java.util.Date
 
 // Create a DataStore instance
@@ -100,8 +104,8 @@ data class WaterIntakeRecord(
 
 @Dao
 interface WaterIntakeDao {
-    @Query("SELECT * FROM water_intake_records ORDER BY date DESC")
-    fun getAll(): Flow<List<WaterIntakeRecord>>
+    @Query("SELECT * FROM water_intake_records WHERE date BETWEEN :start AND :end ORDER BY date DESC")
+    fun getByDate(start: Date, end: Date): Flow<List<WaterIntakeRecord>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: WaterIntakeRecord)
@@ -153,7 +157,21 @@ abstract class AppDatabase : RoomDatabase() {
  * A simple repository to manage water intake data.
  */
 class WaterRepository(private val waterIntakeDao: WaterIntakeDao) {
-    val records: Flow<List<WaterIntakeRecord>> = waterIntakeDao.getAll()
+    fun getRecordsByDate(date: Date): Flow<List<WaterIntakeRecord>> {
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        val startDate = calendar.time
+
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        val endDate = calendar.time
+
+        return waterIntakeDao.getByDate(startDate, endDate)
+    }
 
     suspend fun addRecord(record: WaterIntakeRecord) {
         Log.d(TAG, "Repository: inserting $record ml")
@@ -178,7 +196,13 @@ class WaterViewModel(
     private val waterRepository: WaterRepository,
     private val prefsRepository: UserPreferencesRepository
 ) : ViewModel() {
-    val records: StateFlow<List<WaterIntakeRecord>> = waterRepository.records.stateIn(
+    private val _selectedDate = MutableStateFlow(Date())
+    val selectedDate: StateFlow<Date> = _selectedDate.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val records: StateFlow<List<WaterIntakeRecord>> = _selectedDate.flatMapLatest { date ->
+        waterRepository.getRecordsByDate(date)
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
@@ -212,6 +236,9 @@ class WaterViewModel(
             initialValue = true
         )
 
+    fun selectDate(date: Date) {
+        _selectedDate.value = date
+    }
 
     fun addWaterIntake(amount: Double) {
         Log.d(TAG, "addWaterIntake: adding $amount ml")
