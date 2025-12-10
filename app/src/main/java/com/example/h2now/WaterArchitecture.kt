@@ -12,20 +12,21 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -101,8 +102,14 @@ interface WaterIntakeDao {
     @Query("SELECT * FROM water_intake_records ORDER BY date DESC")
     fun getAll(): Flow<List<WaterIntakeRecord>>
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: WaterIntakeRecord)
+
+    @Update
+    suspend fun update(record: WaterIntakeRecord)
+
+    @Delete
+    suspend fun delete(record: WaterIntakeRecord)
 }
 
 class Converters {
@@ -150,6 +157,14 @@ class WaterRepository(private val waterIntakeDao: WaterIntakeDao) {
     suspend fun addRecord(record: WaterIntakeRecord) {
         waterIntakeDao.insert(record)
     }
+
+    suspend fun updateRecord(record: WaterIntakeRecord) {
+        waterIntakeDao.update(record)
+    }
+
+    suspend fun deleteRecord(record: WaterIntakeRecord) {
+        waterIntakeDao.delete(record)
+    }
 }
 
 /**
@@ -165,7 +180,6 @@ class WaterViewModel(
         initialValue = emptyList()
     )
 
-    // Expose daily goal from preferences
     val dailyGoal: StateFlow<Int> = prefsRepository.dailyGoal
         .stateIn(
             scope = viewModelScope,
@@ -204,7 +218,18 @@ class WaterViewModel(
         }
     }
 
-    // Function to update the goal
+    fun updateWaterIntake(record: WaterIntakeRecord) {
+        viewModelScope.launch {
+            waterRepository.updateRecord(record)
+        }
+    }
+
+    fun deleteWaterIntake(record: WaterIntakeRecord) {
+        viewModelScope.launch {
+            waterRepository.deleteRecord(record)
+        }
+    }
+
     fun setDailyGoal(newGoal: Int) {
         viewModelScope.launch {
             prefsRepository.updateDailyGoal(newGoal)

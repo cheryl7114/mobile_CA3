@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -71,6 +73,23 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStackEntry?.destination?.route
+
+                var selectedRecordForEditing by remember { mutableStateOf<WaterIntakeRecord?>(null) }
+
+                if (selectedRecordForEditing != null) {
+                    EditIntakeDialog(
+                        record = selectedRecordForEditing!!,
+                        onDismiss = { selectedRecordForEditing = null },
+                        onSave = {
+                            waterViewModel.updateWaterIntake(it)
+                            selectedRecordForEditing = null
+                        },
+                        onDelete = {
+                            waterViewModel.deleteWaterIntake(it)
+                            selectedRecordForEditing = null
+                        }
+                    )
+                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -134,7 +153,8 @@ class MainActivity : ComponentActivity() {
                                 }
                                 WaterIntakeList(
                                     modifier = Modifier.weight(1f),
-                                    records = records
+                                    records = records,
+                                    onRecordClick = { selectedRecordForEditing = it }
                                 )
                             }
                         }
@@ -366,11 +386,16 @@ fun DailySummaryCard(
 }
 
 @Composable
-fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
+fun WaterIntakeCard(
+    record: WaterIntakeRecord,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp, horizontal = 16.dp),
+            .padding(vertical = 6.dp, horizontal = 16.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -414,19 +439,33 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = when {
-                        record.amount >= 500 -> "Great!"
-                        record.amount >= 250 -> "Good"
-                        else -> "Keep Going"
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = when {
+                            record.amount >= 500 -> "Great!"
+                            record.amount >= 250 -> "Good"
+                            else -> "Keep Going"
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit Record",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(18.dp)
+                        .clickable { onClick() }
                 )
             }
         }
@@ -434,7 +473,11 @@ fun WaterIntakeCard(record: WaterIntakeRecord, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeRecord>) {
+fun WaterIntakeList(
+    modifier: Modifier = Modifier,
+    records: List<WaterIntakeRecord>,
+    onRecordClick: (WaterIntakeRecord) -> Unit
+) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
@@ -448,9 +491,130 @@ fun WaterIntakeList(modifier: Modifier = Modifier, records: List<WaterIntakeReco
             )
         }
         items(records) { record ->
-            WaterIntakeCard(record = record)
+            WaterIntakeCard(record = record) { onRecordClick(record) }
         }
     }
+}
+
+@Composable
+fun EditIntakeDialog(
+    record: WaterIntakeRecord,
+    onDismiss: () -> Unit,
+    onSave: (WaterIntakeRecord) -> Unit,
+    onDelete: (WaterIntakeRecord) -> Unit
+) {
+    var text by remember { mutableStateOf(record.amount.toInt().toString()) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = { Text("Delete Intake?") },
+            text = { Text("Are you sure you want to delete this ${record.amount.toInt()} ml intake record?") },
+            confirmButton = {
+                Button(
+                    onClick = { onDelete(record) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                "Edit Water Intake",
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Amount (ml)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(Icons.Default.WaterDrop, contentDescription = null)
+                    }
+                )
+
+                val sdf = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
+                Text(
+                    text = "Recorded: ${sdf.format(record.date)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val newAmount = text.toDoubleOrNull()
+                    if (newAmount != null && newAmount > 0) {
+                        onSave(record.copy(amount = newAmount))
+                    }
+                },
+                enabled = text.toDoubleOrNull()?.let { it > 0 } ?: false
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
 }
 
 @Preview(showBackground = true)
@@ -460,59 +624,7 @@ fun WaterIntakeListPreview() {
         Column {
             DailySummaryCard(records = mockWaterIntakeRecords, dailyGoal = 2000.0) {}
             AddIntakeSection { }
-            WaterIntakeList(records = mockWaterIntakeRecords)
+            WaterIntakeList(records = mockWaterIntakeRecords) {}
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainScreenPreview() {
-    H2nowTheme {
-        // You can't use the real ViewModel in a preview, so pass mock data.
-        // Your file already has a mock list, which is perfect!
-        val records = mockWaterIntakeRecords
-        val dailyGoal = 2000.0
-
-        Column {
-            DailySummaryCard(records = records, dailyGoal = dailyGoal) {}
-            AddIntakeSection {}
-            WaterIntakeList(
-                modifier = Modifier.weight(1f),
-                records = records
-            )
-        }
-    }
-}
-
-@Preview(
-    name = "Phone",
-    showBackground = true,
-    device = "spec:width=360dp,height=640dp,dpi=480"
-)
-@Composable
-fun PhonePreview() {
-    MainScreenPreview()
-}
-
-// Preview for a foldable device in its unfolded state
-@Preview(
-    name = "Foldable (Unfolded)",
-    showBackground = true,
-    device = "spec:width=673dp,height=841dp,dpi=480"
-)
-@Composable
-fun FoldablePreview() {
-    MainScreenPreview()
-}
-
-// Preview for a tablet
-@Preview(
-    name = "Tablet",
-    showBackground = true,
-    device = "spec:width=1280dp,height=800dp,dpi=480"
-)
-@Composable
-fun TabletPreview() {
-    MainScreenPreview()
 }
