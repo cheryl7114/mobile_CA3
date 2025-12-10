@@ -15,6 +15,7 @@
 
 - Home Screen (today’s progress + add buttons)
 - Hydration Tips
+- Settings
 
 Navigation handled using Jetpack Navigation Compose.
 
@@ -24,19 +25,19 @@ Navigation handled using Jetpack Navigation Compose.
 
 6. Local Database Storage (Room DB)
    All water logs (amount + timestamp) are saved in a local Room database.
+   Users can tap on any record to open a dialog to **edit** or **delete** it.
    Allows viewing data even when offline.
 
 7. Sync or Fetch Hydration Tips from API (Retrofit)
    A "Hydration Tips" screen fetches a list of simple tips from a mock/real REST API using Retrofit, then displays them in a list.
 
 8. Load Images with Coil
-   Illustrations such as water bottles, cups, or tip icons loaded from URLs using Coil.
+   Illustrations for hydration tips are loaded from URLs using Coil.
 
 9. Adaptive UI for Different Screen Sizes
-   Layout adjusts spacing and card size for phones vs tablets using modifiers, windowSizeClass, and responsive Composables.
 
-10. Full App Logging (Timber / Logcat)
-    Important actions (add cup, change goal, fetch API data) generate log messages for debugging.
+10. Full App Logging (Logcat)
+    Important actions (navigation, add/modify/delete intake, set goal, fetch API data) generate log messages for debugging.
 
 11. Clean Architecture (MVVM)
-    Uses ViewModel, Repository to cleanly separate UI from data logic.
+    Uses ViewModel and Repository to cleanly separate UI from data logic.

@@ -1,6 +1,7 @@
 package com.example.h2now
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -155,14 +156,17 @@ class WaterRepository(private val waterIntakeDao: WaterIntakeDao) {
     val records: Flow<List<WaterIntakeRecord>> = waterIntakeDao.getAll()
 
     suspend fun addRecord(record: WaterIntakeRecord) {
+        Log.d(TAG, "Repository: inserting $record ml")
         waterIntakeDao.insert(record)
     }
 
     suspend fun updateRecord(record: WaterIntakeRecord) {
+        Log.d(TAG, "Repository: updating record id=${record.id}")
         waterIntakeDao.update(record)
     }
 
     suspend fun deleteRecord(record: WaterIntakeRecord) {
+        Log.d(TAG, "Repository: deleting record id=${record.id}")
         waterIntakeDao.delete(record)
     }
 }
@@ -210,29 +214,36 @@ class WaterViewModel(
 
 
     fun addWaterIntake(amount: Double) {
+        Log.d(TAG, "addWaterIntake: adding $amount ml")
         viewModelScope.launch {
             if (amount > 0) {
                 val newRecord = WaterIntakeRecord(amount = amount, date = Date())
                 waterRepository.addRecord(newRecord)
+                Log.d(TAG, "addWaterIntake: insert complete")
             }
         }
     }
 
     fun updateWaterIntake(record: WaterIntakeRecord) {
+        Log.d(TAG, "updateWaterIntake: updating record id=${record.id}, amount=${record.amount}")
         viewModelScope.launch {
             waterRepository.updateRecord(record)
+            Log.d(TAG, "updateWaterIntake: update complete")
         }
     }
 
     fun deleteWaterIntake(record: WaterIntakeRecord) {
+        Log.d(TAG, "deleteWaterIntake: deleting record id=${record.id}")
         viewModelScope.launch {
             waterRepository.deleteRecord(record)
+            Log.d(TAG, "deleteWaterIntake: delete complete")
         }
     }
 
     fun setDailyGoal(newGoal: Int) {
         viewModelScope.launch {
             prefsRepository.updateDailyGoal(newGoal)
+            Log.d(TAG, "setDailyGoal: set goal to $newGoal ml")
         }
     }
 

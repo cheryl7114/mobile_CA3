@@ -179,6 +179,8 @@ fun BottomNavigationBar(navController: androidx.navigation.NavController) {
             NavigationItem("tips", Icons.Default.Info, "Tips")
         )
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+        Log.d(TAG, "Navigated to route: $currentRoute")
+
         items.forEach { item ->
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.title) },

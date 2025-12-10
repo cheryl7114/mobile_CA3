@@ -1,5 +1,6 @@
 package com.example.h2now
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -49,11 +50,14 @@ class TipsViewModel(private val tipsRepository: TipsRepository) : ViewModel() {
     private fun fetchTips() {
         viewModelScope.launch {
             _uiState.value = TipsUiState.Loading
+            Log.d("TipsViewModel", "fetchTips: starting")
             try {
                 val response = tipsRepository.getTips()
                 _uiState.value = TipsUiState.Success(response.tips)
+                Log.d("TipsViewModel", "fetchTips: success with ${response.tips.size} items")
             } catch (e: Exception) {
                 _uiState.value = TipsUiState.Error("Failed to load tips: ${e.message}")
+                Log.e("TipsViewModel", "fetchTips: error ${e.message}")
             }
         }
     }
