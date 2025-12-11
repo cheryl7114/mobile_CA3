@@ -36,7 +36,6 @@ fun TipsScreen() {
 
     TipsContent(uiState = uiState)
 }
-
 @Composable
 fun TipsContent(uiState: TipsUiState, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -29,12 +29,13 @@ Navigation handled using Jetpack Navigation Compose.
    Allows viewing data even when offline.
 
 7. Sync or Fetch Hydration Tips from API (Retrofit)
-   A "Hydration Tips" screen fetches a list of simple tips from a mock/real REST API using Retrofit, then displays them in a list.
+   A "Hydration Tips" screen fetches a list of simple tips from a JSON file (hosted on GitHub which acts as a real API) using Retrofit.
 
 8. Load Images with Coil
    Illustrations for hydration tips are loaded from URLs using Coil.
 
 9. Adaptive UI for Different Screen Sizes
+   Created Previews for different screen sizes and adjusted them accordingly. 
 
 10. Full App Logging (Logcat)
     Important actions (navigation, add/modify/delete intake, set goal, fetch API data) generate log messages for debugging.

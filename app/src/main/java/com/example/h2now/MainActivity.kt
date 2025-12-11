@@ -709,7 +709,7 @@ fun EditIntakeDialog(
 
 @Preview(showBackground = true)
 @Composable
-fun WaterIntakeListPreview() {
+fun MainScreenPreviewContent() {
     H2nowTheme {
         Column {
             DailySummaryCard(records = mockWaterIntakeRecords, dailyGoal = 2000.0, selectedDate = Date()) {}
@@ -717,4 +717,22 @@ fun WaterIntakeListPreview() {
             WaterIntakeList(records = mockWaterIntakeRecords) {}
         }
     }
+}
+
+@Preview(name = "Phone", group = "Screen Sizes", showBackground = true, device = "spec:width=360dp,height=640dp,dpi=480")
+@Composable
+fun MainScreenPhonePreview() {
+    MainScreenPreviewContent()
+}
+
+@Preview(name = "Foldable (Unfolded)", group = "Screen Sizes", showBackground = true, device = "spec:width=673dp,height=841dp,dpi=480")
+@Composable
+fun MainScreenFoldablePreview() {
+    MainScreenPreviewContent()
+}
+
+@Preview(name = "Tablet", group = "Screen Sizes", showBackground = true, device = "spec:width=1280dp,height=800dp,dpi=480")
+@Composable
+fun MainScreenTabletPreview() {
+    MainScreenPreviewContent()
 }
